@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { MoonIcon, SunIcon, SettingsIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -47,8 +48,15 @@ export default function Navbar() {
       transition={{ duration: 0.5 }}
     >
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-        <Link href="/" className="text-2xl font-bold">
-          WeatherApp
+        <Link href="/" className="text-2xl font-bold flex items-center gap-2">
+          <Image
+            src="/favicon.ico"
+            alt="MyWeather Logo"
+            width={50}
+            height={50}
+            className="dark:invert mr-3"
+          />
+          MyWeather
         </Link>
         <div className="flex items-center space-x-4">
           <Button variant="ghost" size="icon" onClick={toggleTheme}>
