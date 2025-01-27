@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 
 import { createClient } from '@/app/supabase-server'
 
@@ -47,5 +48,13 @@ export async function emailSignup(formData: FormData) {
 export async function logOut() {
   const supabase = await createClient()
   await supabase.auth.signOut()
+  
+  // Clear cookies by setting them to expire
+  const cookieStore = await cookies()
+  cookieStore.delete('sb-ynsflrhfvjmliaiuhmox-auth-token.0')
+  cookieStore.delete('sb-ynsflrhfvjmliaiuhmox-auth-token.1')
+
+  
+  revalidatePath('/', 'layout')
   redirect('/auth')
 }

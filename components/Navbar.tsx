@@ -8,10 +8,17 @@ import { MoonIcon, SunIcon, SettingsIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "next-themes";
 import { createClient } from "@/utils/supabase/client";
+import { logOut } from "@/app/auth/action";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 export default function Navbar() {
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [userData, setUserData] = useState<{
+    name?: string;
+    email?: string;
+    avatar_url?: string;
+  } | null>(null);
   const { setTheme, theme } = useTheme();
 
   useEffect(() => {
@@ -23,18 +30,52 @@ export default function Navbar() {
 
     supabase.auth.getUser().then(({ data: { user } }) => {
       setIsSignedIn(!!user);
+      if (user) {
+        const name =
+          user.user_metadata?.full_name ||
+          user.user_metadata?.name ||
+          user.email?.split("@")[0];
+        setUserData({
+          name,
+          email: user.email,
+          avatar_url: user.user_metadata?.avatar_url,
+        });
+      }
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setIsSignedIn(!!session?.user);
+      if (session?.user) {
+        const user = session.user;
+        const name =
+          user.user_metadata?.full_name ||
+          user.user_metadata?.name ||
+          user.email?.split("@")[0];
+        setUserData({
+          name,
+          email: user.email,
+          avatar_url: user.user_metadata?.avatar_url,
+        });
+      } else {
+        setUserData(null);
+      }
     });
 
     return () => {
       subscription.unsubscribe();
     };
   }, []);
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
 
   const toggleTheme = () => {
     setTheme(theme === "light" ? "dark" : "light");
@@ -73,9 +114,29 @@ export default function Navbar() {
           <Button variant="ghost" size="icon">
             <SettingsIcon className="h-5 w-5" />
           </Button>
-          <Link href="/auth">
-            <Button>{isSignedIn ? "Log Out" : "Sign In"}</Button>
-          </Link>
+          {isSignedIn ? (
+            <div className="flex items-center gap-4">
+              <Avatar className="h-10 w-10 border-5 border-primary">
+                {userData?.avatar_url ? (
+                  <AvatarImage
+                    src={userData.avatar_url}
+                    alt={userData.name || "User"}
+                  />
+                ) : (
+                  <AvatarFallback className="bg-primary text-primary-foreground text-sm font-medium ">
+                    {userData?.name ? getInitials(userData.name) : "??"}
+                  </AvatarFallback>
+                )}
+              </Avatar>
+              <form action={logOut}>
+                <Button>Log Out</Button>
+              </form>
+            </div>
+          ) : (
+            <Link href="/auth">
+              <Button>Sign In</Button>
+            </Link>
+          )}
         </div>
       </div>
     </motion.nav>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,6 +19,8 @@ import { Cloud, Sun } from "lucide-react";
 import { emailLogin, emailSignup } from "./action";
 import OAuthButton from "./oauth";
 import { providers } from "./providers";
+import { createClient } from "@/utils/supabase/client";
+import { redirect } from "next/navigation";
 
 const formVariants = {
   hidden: {
@@ -51,6 +53,20 @@ export default function AuthPage({
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("login");
+  const router = useRouter();
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        redirect("/");
+      }
+    };
+    checkUser();
+  }, [router]);
 
   async function clientAction(formData: FormData) {
     setIsLoading(true);
