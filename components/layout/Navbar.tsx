@@ -4,12 +4,12 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { MoonIcon, SunIcon, SettingsIcon } from "lucide-react";
+import { MoonIcon, SunIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "next-themes";
 import { createClient } from "@/utils/supabase/client";
 import { logOut } from "@/app/auth/action";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import Settings from "@/components/weather/Settings";
 
 export default function Navbar() {
   const [isSignedIn, setIsSignedIn] = useState(false);
@@ -83,7 +83,7 @@ export default function Navbar() {
 
   return (
     <motion.nav
-      className="bg-background/80 backdrop-blur-md border-b border-border fixed top-0 left-0 right-0 z-50"
+      className="bg-background/80 backdrop-blur-md border-b border-border fixed top-0 left-0 right-0 z-50 shadow-md"
       initial={{ y: -50 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.5 }}
@@ -111,23 +111,9 @@ export default function Navbar() {
               </>
             )}
           </Button>
-          <Button variant="ghost" size="icon">
-            <SettingsIcon className="h-5 w-5" />
-          </Button>
+          <Settings />
           {isSignedIn ? (
             <div className="flex items-center gap-4">
-              <Avatar className="h-10 w-10 border-5 border-primary">
-                {userData?.avatar_url ? (
-                  <AvatarImage
-                    src={userData.avatar_url}
-                    alt={userData.name || "User"}
-                  />
-                ) : (
-                  <AvatarFallback className="bg-primary text-primary-foreground text-sm font-medium ">
-                    {userData?.name ? getInitials(userData.name) : "??"}
-                  </AvatarFallback>
-                )}
-              </Avatar>
               <form action={logOut}>
                 <Button>Log Out</Button>
               </form>
