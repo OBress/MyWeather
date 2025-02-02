@@ -6,6 +6,7 @@ export interface WeatherLocation {
   lat: number;
   lon: number;
   localtime: string;
+  tz_id: string;
 }
 
 export interface CurrentWeather {

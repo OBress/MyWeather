@@ -15,11 +15,21 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { useLoadScript } from "@react-google-maps/api";
+import { createClient } from "@/utils/supabase/client";
+
+const libraries: "places"[] = ["places"];
 
 interface Location {
   id: string;
   nickname: string;
   address: string;
+}
+
+interface UserSettings {
+  locations: Location[];
+  defaultLocationId: string | null;
+  openaiApiKey: string;
 }
 
 export default function Settings() {
@@ -31,28 +41,160 @@ export default function Settings() {
   const [apiKey, setApiKey] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
   const [isSaved, setIsSaved] = useState(true);
+  const [autocompleteService, setAutocompleteService] =
+    useState<google.maps.places.AutocompleteService | null>(null);
+  const [suggestions, setSuggestions] = useState<
+    google.maps.places.AutocompletePrediction[]
+  >([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const router = useRouter();
+  const supabase = createClient();
+
+  const { isLoaded, loadError } = useLoadScript({
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+    libraries,
+  });
 
   useEffect(() => {
-    // Load saved settings from localStorage
-    const savedLocations = localStorage.getItem("weatherLocations");
-    const savedDefaultLocation = localStorage.getItem("defaultLocation");
-    const savedApiKey = localStorage.getItem("openaiApiKey");
+    if (isLoaded && !autocompleteService) {
+      setAutocompleteService(new google.maps.places.AutocompleteService());
+    }
+  }, [isLoaded]);
 
-    if (savedLocations) setLocations(JSON.parse(savedLocations));
-    if (savedDefaultLocation) setDefaultLocation(savedDefaultLocation);
-    if (savedApiKey) setApiKey(savedApiKey);
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Get the most recent settings record for this user
+        const { data: settings, error } = await supabase
+          .from("user_settings")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        if (error) {
+          console.error("Error loading settings:", error);
+          return;
+        }
+
+        if (settings) {
+          setLocations(settings.locations || []);
+          setDefaultLocation(settings.default_location || "");
+          setApiKey(settings.openai_api_key || "");
+        }
+      } catch (error) {
+        console.error("Error in loadSettings:", error);
+      }
+    };
+
+    loadSettings();
   }, []);
 
-  useEffect(() => {
-    // Save settings to localStorage whenever they change
-    localStorage.setItem("weatherLocations", JSON.stringify(locations));
-    if (defaultLocation)
-      localStorage.setItem("defaultLocation", defaultLocation);
-  }, [locations, defaultLocation]);
+  const saveSettings = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
 
-  const saveApiKey = () => {
-    localStorage.setItem("openaiApiKey", apiKey);
+      const settings = {
+        user_id: user.id,
+        default_location: defaultLocation || "",
+        locations: locations || [],
+        openai_api_key: apiKey || "",
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase.from("user_settings").upsert(settings, {
+        onConflict: "user_id",
+        ignoreDuplicates: false,
+      });
+
+      if (error) {
+        console.error("Error saving settings:", error);
+        return;
+      }
+
+      setIsSaved(true);
+    } catch (error) {
+      console.error("Error in saveSettings:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (!newAddress || !autocompleteService) {
+      setSuggestions([]);
+      return;
+    }
+
+    const fetchSuggestions = async () => {
+      try {
+        const results = await autocompleteService.getPlacePredictions({
+          input: newAddress,
+          types: [], // Allow all types of locations
+        });
+        setSuggestions(results?.predictions || []);
+        setShowSuggestions(true);
+      } catch (error) {
+        console.error("Error fetching suggestions:", error);
+        setSuggestions([]);
+      }
+    };
+
+    const debounceTimer = setTimeout(fetchSuggestions, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [newAddress, autocompleteService]);
+
+  const handleSuggestionSelect = (
+    suggestion: google.maps.places.AutocompletePrediction
+  ) => {
+    const address = `${suggestion.structured_formatting.main_text}, ${suggestion.structured_formatting.secondary_text}`;
+    setNewAddress(address);
+    setShowSuggestions(false);
+  };
+
+  const addLocation = async () => {
+    if (newNickname && newAddress) {
+      const newLocation: Location = {
+        id: Date.now().toString(),
+        nickname: newNickname,
+        address: newAddress,
+      };
+      const updatedLocations = [...locations, newLocation];
+      setLocations(updatedLocations);
+      setNewNickname("");
+      setNewAddress("");
+      setShowSuggestions(false);
+      await saveSettings();
+    }
+  };
+
+  const removeLocation = async (id: string) => {
+    const updatedLocations = locations.filter((loc) => loc.id !== id);
+    setLocations(updatedLocations);
+    if (defaultLocation === id) setDefaultLocation(null);
+    await saveSettings();
+  };
+
+  const handleDefaultLocationChange = async (id: string) => {
+    const newDefaultLocation = defaultLocation === id ? "" : id;
+    setDefaultLocation(newDefaultLocation);
+    await saveSettings();
+  };
+
+  const handleLocationClick = (location: Location) => {
+    setIsOpen(false);
+    router.push(`/?location=${encodeURIComponent(location.address)}`);
+  };
+
+  const saveApiKey = async () => {
+    await saveSettings();
     setIsSaved(true);
   };
 
@@ -61,32 +203,9 @@ export default function Settings() {
     setIsSaved(false);
   };
 
-  const addLocation = () => {
-    if (newNickname && newAddress) {
-      const newLocation: Location = {
-        id: Date.now().toString(),
-        nickname: newNickname,
-        address: newAddress,
-      };
-      setLocations([...locations, newLocation]);
-      setNewNickname("");
-      setNewAddress("");
-    }
-  };
-
-  const removeLocation = (id: string) => {
-    setLocations(locations.filter((loc) => loc.id !== id));
-    if (defaultLocation === id) setDefaultLocation(null);
-  };
-
-  const handleDefaultLocationChange = (id: string) => {
-    setDefaultLocation(defaultLocation === id ? null : id);
-  };
-
-  const handleLocationClick = (location: Location) => {
-    setIsOpen(false);
-    router.push(`/?location=${encodeURIComponent(location.address)}`);
-  };
+  if (loadError) {
+    console.error("Error loading Google Maps API:", loadError);
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -201,19 +320,52 @@ export default function Settings() {
           </div>
           <div className="grid gap-2">
             <Label>Add New Location</Label>
-            <div className="flex space-x-2">
+            <div className="flex flex-col gap-2">
               <Input
                 placeholder="Nickname"
                 value={newNickname}
                 onChange={(e) => setNewNickname(e.target.value)}
               />
-              <Input
-                placeholder="Address"
-                value={newAddress}
-                onChange={(e) => setNewAddress(e.target.value)}
-              />
-              <Button onClick={addLocation}>
-                <Plus className="h-4 w-4" />
+              <div className="relative">
+                <Input
+                  placeholder="Address"
+                  value={newAddress}
+                  onChange={(e) => setNewAddress(e.target.value)}
+                  onFocus={() => setShowSuggestions(true)}
+                />
+                {showSuggestions && suggestions.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 0 }}
+                    animate={{ opacity: 1, y: 4 }}
+                    exit={{ opacity: 0, y: 0 }}
+                    className="absolute left-0 right-0 top-full z-50 mt-1 bg-background/95 backdrop-blur-md border border-border rounded-md shadow-lg overflow-hidden"
+                  >
+                    <div className="max-h-[200px] overflow-y-auto scrollbar-hide">
+                      {suggestions.map((suggestion) => (
+                        <motion.button
+                          key={suggestion.place_id}
+                          onClick={() => handleSuggestionSelect(suggestion)}
+                          className="w-full px-3 py-2 text-left hover:bg-accent/50 transition-colors flex items-center gap-2 group"
+                          whileHover={{ scale: 1.005 }}
+                          whileTap={{ scale: 0.995 }}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm group-hover:text-primary transition-colors truncate">
+                              {suggestion.structured_formatting.main_text}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {suggestion.structured_formatting.secondary_text}
+                            </p>
+                          </div>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+              <Button onClick={addLocation} className="w-full">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Location
               </Button>
             </div>
           </div>
