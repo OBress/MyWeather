@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, Power, Save, Eye, EyeOff } from "lucide-react";
 import {
@@ -15,21 +15,22 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { useLoadScript } from "@react-google-maps/api";
+import { useLoadScript, Libraries } from "@react-google-maps/api";
 import { createClient } from "@/utils/supabase/client";
+import type { PlaceAutocompleteResult } from "@/types/google-maps";
 
-const libraries: "places"[] = ["places"];
+declare global {
+  interface Window {
+    google: typeof google;
+  }
+}
+
+const libraries: Libraries = ["places"];
 
 interface Location {
   id: string;
   nickname: string;
   address: string;
-}
-
-interface UserSettings {
-  locations: Location[];
-  defaultLocationId: string | null;
-  openaiApiKey: string;
 }
 
 export default function Settings() {
@@ -43,9 +44,7 @@ export default function Settings() {
   const [isSaved, setIsSaved] = useState(true);
   const [autocompleteService, setAutocompleteService] =
     useState<google.maps.places.AutocompleteService | null>(null);
-  const [suggestions, setSuggestions] = useState<
-    google.maps.places.AutocompletePrediction[]
-  >([]);
+  const [suggestions, setSuggestions] = useState<PlaceAutocompleteResult[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const router = useRouter();
   const supabase = createClient();
@@ -57,7 +56,9 @@ export default function Settings() {
 
   useEffect(() => {
     if (isLoaded && !autocompleteService) {
-      setAutocompleteService(new google.maps.places.AutocompleteService());
+      setAutocompleteService(
+        new window.google.maps.places.AutocompleteService()
+      );
     }
   }, [isLoaded, autocompleteService]);
 
@@ -119,7 +120,7 @@ export default function Settings() {
       if (!user) return;
 
       // First check if a record exists
-      const { data: existingSettings, error: fetchError } = await supabase
+      const { data: existingSettings } = await supabase
         .from("user_settings")
         .select("*")
         .eq("user_id", user.id)
@@ -186,7 +187,7 @@ export default function Settings() {
   }, [newAddress, autocompleteService, showSuggestions]);
 
   const handleSuggestionSelect = (
-    suggestion: google.maps.places.AutocompletePrediction,
+    suggestion: PlaceAutocompleteResult,
     e: React.MouseEvent
   ) => {
     e.preventDefault();
@@ -232,7 +233,7 @@ export default function Settings() {
       if (!user) return;
 
       // First check if a record exists
-      const { data: existingSettings, error: fetchError } = await supabase
+      const { data: existingSettings } = await supabase
         .from("user_settings")
         .select("*")
         .eq("user_id", user.id)

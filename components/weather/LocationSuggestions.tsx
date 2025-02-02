@@ -1,10 +1,18 @@
 "use client";
 
+import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import type { PlaceAutocompleteResult } from "@/types/google-maps";
+
+declare global {
+  interface Window {
+    google: typeof google;
+  }
+}
 
 interface LocationSuggestionsProps {
-  suggestions: google.maps.places.AutocompletePrediction[];
-  onSelect: (place: google.maps.places.AutocompletePrediction) => void;
+  suggestions: PlaceAutocompleteResult[];
+  onSelect: (suggestion: PlaceAutocompleteResult) => void;
   visible: boolean;
 }
 

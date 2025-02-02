@@ -1,17 +1,23 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useLoadScript } from "@react-google-maps/api";
+import { useLoadScript, Libraries } from "@react-google-maps/api";
 import LocationSuggestions from "./LocationSuggestions";
 import LLMResponse from "./LLMResponse";
-import { createClient } from "@/utils/supabase/client";
 import { getCurrentWeather } from "@/utils/weather";
 import type { WeatherResponse } from "@/types/weather";
+import type { PlaceAutocompleteResult } from "@/types/google-maps";
 
-const libraries: "places"[] = ["places"];
+declare global {
+  interface Window {
+    google: typeof google;
+  }
+}
+
+const libraries: Libraries = ["places"];
 
 interface ChatInputProps {
   onSubmit: (input: string) => void;
@@ -22,13 +28,11 @@ export default function ChatInput({
   onSubmit,
   currentLocation,
 }: ChatInputProps) {
-  const [input, setInput] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
   const [screenWidth, setScreenWidth] = useState(0);
   const inputRef = useRef<HTMLFormElement>(null);
-  const [suggestions, setSuggestions] = useState<
-    google.maps.places.AutocompletePrediction[]
-  >([]);
+  const [suggestions, setSuggestions] = useState<PlaceAutocompleteResult[]>([]);
   const [autocompleteService, setAutocompleteService] =
     useState<google.maps.places.AutocompleteService | null>(null);
   const [llmResponse, setLlmResponse] = useState<string | null>(null);
@@ -43,8 +47,6 @@ export default function ChatInput({
     libraries,
   });
 
-  const supabase = createClient();
-
   useEffect(() => {
     const handleResize = () => setScreenWidth(window.innerWidth);
     handleResize();
@@ -54,21 +56,23 @@ export default function ChatInput({
 
   useEffect(() => {
     if (isLoaded && !autocompleteService) {
-      setAutocompleteService(new google.maps.places.AutocompleteService());
+      setAutocompleteService(
+        new window.google.maps.places.AutocompleteService()
+      );
     }
-  }, [isLoaded]);
+  }, [isLoaded, autocompleteService]);
 
   useEffect(() => {
-    if (!input || !autocompleteService || input.startsWith("@")) {
+    if (!searchInput || !autocompleteService || searchInput.startsWith("@")) {
       setSuggestions([]);
       return;
     }
 
     const fetchSuggestions = async () => {
       try {
-        console.log("Fetching suggestions for:", input);
+        console.log("Fetching suggestions for:", searchInput);
         const results = await autocompleteService.getPlacePredictions({
-          input,
+          input: searchInput,
           types: [], // Allow all types of locations
         });
         console.log("Suggestions fetched:", results);
@@ -81,7 +85,7 @@ export default function ChatInput({
 
     const debounceTimer = setTimeout(fetchSuggestions, 1000); // Reduced debounce time for better responsiveness
     return () => clearTimeout(debounceTimer);
-  }, [input, autocompleteService]);
+  }, [searchInput, autocompleteService]);
 
   useEffect(() => {
     const fetchWeather = async () => {
@@ -89,8 +93,9 @@ export default function ChatInput({
       try {
         const data = await getCurrentWeather(currentLocation);
         setCurrentWeather(data);
-      } catch (error) {
-        console.error("Error fetching weather data:", error);
+      } catch {
+        // Error is logged in getCurrentWeather
+        setCurrentWeather(null);
       }
     };
 
@@ -99,20 +104,20 @@ export default function ChatInput({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (input.trim().startsWith("@")) {
+    if (searchInput.trim().startsWith("@")) {
       setIsLLMLoading(true);
       try {
         if (!currentWeather) {
           throw new Error("Weather data not available");
         }
         const response = await handleLLMQuery(
-          input.trim().slice(1),
+          searchInput.trim().slice(1),
           currentLocation,
           currentWeather
         );
         setLlmResponse(response);
         setIsLLMVisible(true);
-      } catch (error) {
+      } catch {
         setLlmResponse("Error processing your request. Please try again.");
         setIsLLMVisible(true);
       }
@@ -120,19 +125,17 @@ export default function ChatInput({
       return;
     }
 
-    if (input.trim()) {
-      onSubmit(input.trim());
-      setInput("");
+    if (searchInput.trim()) {
+      onSubmit(searchInput.trim());
+      setSearchInput("");
       setIsExpanded(false);
       setSuggestions([]);
     }
   };
 
-  const handleSuggestionSelect = (
-    suggestion: google.maps.places.AutocompletePrediction
-  ) => {
+  const handleSuggestionSelect = (suggestion: PlaceAutocompleteResult) => {
     const location = `${suggestion.structured_formatting.main_text}, ${suggestion.structured_formatting.secondary_text}`;
-    setInput(location);
+    setSearchInput(location);
     onSubmit(location);
     setIsExpanded(false);
     setSuggestions([]);
@@ -226,8 +229,8 @@ export default function ChatInput({
               <input
                 type="text"
                 placeholder="Search any location or '@' to ask AI"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 className="w-full bg-transparent border-none text-2xl px-8 focus:outline-none placeholder:text-muted-foreground/50"
                 autoFocus
                 style={{ fontSize: "24px" }}
@@ -251,7 +254,7 @@ export default function ChatInput({
                 size="icon"
                 variant="ghost"
                 onClick={() => {
-                  setInput("");
+                  setSearchInput("");
                   const inputElement = document.querySelector(
                     'input[type="text"]'
                   ) as HTMLInputElement;

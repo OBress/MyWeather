@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { motion } from "framer-motion";
 import WeatherDisplay from "@/components/weather/WeatherDisplay";
 import ChatInput from "@/components/weather/ChatInput";
@@ -9,7 +9,7 @@ import ForecastCards from "@/components/weather/ForecastCards";
 import { createClient } from "@/utils/supabase/client";
 import { useSearchParams } from "next/navigation";
 
-export default function Home() {
+function HomeContent() {
   const [location, setLocation] = useState<string>("");
   const searchParams = useSearchParams();
   const supabase = createClient();
@@ -98,5 +98,13 @@ export default function Home() {
         </motion.div>
       </div>
     </>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <HomeContent />
+    </Suspense>
   );
 }

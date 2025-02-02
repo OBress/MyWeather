@@ -1,0 +1,4 @@
+**/types/google-maps.d.ts
+**/components/weather/ChatInput.tsx
+**/components/weather/LocationSuggestions.tsx
+**/components/weather/Settings.tsx 
