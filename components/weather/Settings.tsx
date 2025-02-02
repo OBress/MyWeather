@@ -66,27 +66,42 @@ export default function Settings() {
       try {
         const {
           data: { user },
+          error: userError,
         } = await supabase.auth.getUser();
-        if (!user) return;
+
+        if (userError) {
+          console.error("Auth error:", userError);
+          return;
+        }
+
+        if (!user) {
+          console.error("No user found");
+          return;
+        }
 
         // Get the most recent settings record for this user
-        const { data: settings, error } = await supabase
+        const { data: settings, error: settingsError } = await supabase
           .from("user_settings")
           .select("*")
           .eq("user_id", user.id)
           .order("updated_at", { ascending: false })
-          .limit(1)
-          .single();
+          .limit(1);
 
-        if (error) {
-          console.error("Error loading settings:", error);
+        if (settingsError) {
+          console.error(
+            "Error loading settings:",
+            settingsError.message,
+            settingsError.details,
+            settingsError.hint
+          );
           return;
         }
 
-        if (settings) {
-          setLocations(settings.locations || []);
-          setDefaultLocation(settings.default_location || "");
-          setApiKey(settings.openai_api_key || "");
+        // If settings exist, use the first record (most recent)
+        if (settings && settings.length > 0) {
+          setLocations(settings[0].locations || []);
+          setDefaultLocation(settings[0].default_location || "");
+          setApiKey(settings[0].openai_api_key || "");
         }
       } catch (error) {
         console.error("Error in loadSettings:", error);
@@ -103,18 +118,36 @@ export default function Settings() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
+      // First check if a record exists
+      const { data: existingSettings, error: fetchError } = await supabase
+        .from("user_settings")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+
       const settings = {
         user_id: user.id,
-        default_location: defaultLocation || "",
+        default_location: defaultLocation || "", // Use empty string instead of null
         locations: locations || [],
         openai_api_key: apiKey || "",
         updated_at: new Date().toISOString(),
       };
 
-      const { error } = await supabase.from("user_settings").upsert(settings, {
-        onConflict: "user_id",
-        ignoreDuplicates: false,
-      });
+      let error;
+      if (!existingSettings) {
+        // If no record exists, do an insert
+        const { error: insertError } = await supabase
+          .from("user_settings")
+          .insert(settings);
+        error = insertError;
+      } else {
+        // If record exists, do an update
+        const { error: updateError } = await supabase
+          .from("user_settings")
+          .update(settings)
+          .eq("user_id", user.id);
+        error = updateError;
+      }
 
       if (error) {
         console.error("Error saving settings:", error);
@@ -122,13 +155,14 @@ export default function Settings() {
       }
 
       setIsSaved(true);
+      router.refresh();
     } catch (error) {
       console.error("Error in saveSettings:", error);
     }
   };
 
   useEffect(() => {
-    if (!newAddress || !autocompleteService) {
+    if (!newAddress || !autocompleteService || !showSuggestions) {
       setSuggestions([]);
       return;
     }
@@ -152,11 +186,16 @@ export default function Settings() {
   }, [newAddress, autocompleteService]);
 
   const handleSuggestionSelect = (
-    suggestion: google.maps.places.AutocompletePrediction
+    suggestion: google.maps.places.AutocompletePrediction,
+    e: React.MouseEvent
   ) => {
+    e.preventDefault();
+    e.stopPropagation();
     const address = `${suggestion.structured_formatting.main_text}, ${suggestion.structured_formatting.secondary_text}`;
     setNewAddress(address);
     setShowSuggestions(false);
+    // Blur the input element to remove focus
+    (document.activeElement as HTMLElement)?.blur();
   };
 
   const addLocation = async () => {
@@ -183,9 +222,60 @@ export default function Settings() {
   };
 
   const handleDefaultLocationChange = async (id: string) => {
-    const newDefaultLocation = defaultLocation === id ? "" : id;
+    const newDefaultLocation = defaultLocation === id ? "" : id; // Use empty string instead of null
     setDefaultLocation(newDefaultLocation);
-    await saveSettings();
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // First check if a record exists
+      const { data: existingSettings, error: fetchError } = await supabase
+        .from("user_settings")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+
+      const settings = {
+        user_id: user.id,
+        default_location: newDefaultLocation,
+        locations: locations || [],
+        openai_api_key: apiKey || "",
+        updated_at: new Date().toISOString(),
+      };
+
+      let error;
+      if (!existingSettings) {
+        // If no record exists, do an insert
+        const { error: insertError } = await supabase
+          .from("user_settings")
+          .insert(settings);
+        error = insertError;
+      } else {
+        // If record exists, do an update
+        const { error: updateError } = await supabase
+          .from("user_settings")
+          .update(settings)
+          .eq("user_id", user.id);
+        error = updateError;
+      }
+
+      if (error) {
+        console.error("Error saving default location:", error);
+        // Revert the state if save failed
+        setDefaultLocation(defaultLocation);
+        return;
+      }
+
+      // Refresh the page to update the weather display
+      router.refresh();
+    } catch (error) {
+      console.error("Error in handleDefaultLocationChange:", error);
+      // Revert the state if save failed
+      setDefaultLocation(defaultLocation);
+    }
   };
 
   const handleLocationClick = (location: Location) => {
@@ -344,7 +434,7 @@ export default function Settings() {
                       {suggestions.map((suggestion) => (
                         <motion.button
                           key={suggestion.place_id}
-                          onClick={() => handleSuggestionSelect(suggestion)}
+                          onClick={(e) => handleSuggestionSelect(suggestion, e)}
                           className="w-full px-3 py-2 text-left hover:bg-accent/50 transition-colors flex items-center gap-2 group"
                           whileHover={{ scale: 1.005 }}
                           whileTap={{ scale: 0.995 }}

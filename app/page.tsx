@@ -16,24 +16,39 @@ export default function Home() {
 
   useEffect(() => {
     const loadDefaultLocation = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return;
 
-      const { data: settings } = await supabase
-        .from("user_settings")
-        .select("*")
-        .eq("user_id", user.id)
-        .single();
+        const { data: settings, error } = await supabase
+          .from("user_settings")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("updated_at", { ascending: false })
+          .limit(1);
 
-      if (settings?.default_location && settings?.locations) {
-        const defaultLocation = settings.locations.find(
-          (loc: any) => loc.id === settings.default_location
-        );
-        if (defaultLocation) {
-          setLocation(defaultLocation.address);
+        if (error) {
+          console.error("Error loading settings:", error);
+          return;
         }
+
+        if (
+          settings &&
+          settings.length > 0 &&
+          settings[0].default_location &&
+          settings[0].locations
+        ) {
+          const defaultLocation = settings[0].locations.find(
+            (loc: any) => loc.id === settings[0].default_location
+          );
+          if (defaultLocation) {
+            setLocation(defaultLocation.address);
+          }
+        }
+      } catch (error) {
+        console.error("Error in loadDefaultLocation:", error);
       }
     };
 
@@ -67,7 +82,10 @@ export default function Home() {
           transition={{ duration: 0.5, delay: 0.2 }}
           className="w-full max-w-4xl px-4 mx-auto flex justify-center"
         >
-          <ChatInput onSubmit={handleLocationSubmit} />
+          <ChatInput
+            onSubmit={handleLocationSubmit}
+            currentLocation={location}
+          />
         </motion.div>
         <motion.div
           initial={{ opacity: 0, y: 20 }}

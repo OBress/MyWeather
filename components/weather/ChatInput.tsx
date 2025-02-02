@@ -7,14 +7,21 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useLoadScript } from "@react-google-maps/api";
 import LocationSuggestions from "./LocationSuggestions";
+import LLMResponse from "./LLMResponse";
+import { createClient } from "@/utils/supabase/client";
+import { getCurrentWeather } from "@/utils/weather";
 
 const libraries: "places"[] = ["places"];
 
 interface ChatInputProps {
   onSubmit: (input: string) => void;
+  currentLocation: string;
 }
 
-export default function ChatInput({ onSubmit }: ChatInputProps) {
+export default function ChatInput({
+  onSubmit,
+  currentLocation,
+}: ChatInputProps) {
   const [input, setInput] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
   const [screenWidth, setScreenWidth] = useState(0);
@@ -25,11 +32,17 @@ export default function ChatInput({ onSubmit }: ChatInputProps) {
   >([]);
   const [autocompleteService, setAutocompleteService] =
     useState<google.maps.places.AutocompleteService | null>(null);
+  const [llmResponse, setLlmResponse] = useState<string | null>(null);
+  const [isLLMLoading, setIsLLMLoading] = useState(false);
+  const [isLLMVisible, setIsLLMVisible] = useState(false);
+  const [currentWeather, setCurrentWeather] = useState<any>(null);
 
   const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
     libraries,
   });
+
+  const supabase = createClient();
 
   useEffect(() => {
     const handleResize = () => setScreenWidth(window.innerWidth);
@@ -80,7 +93,7 @@ export default function ChatInput({ onSubmit }: ChatInputProps) {
 
       updateRect();
       // Update rect on animation completion
-      setTimeout(updateRect, 300);
+      setTimeout(updateRect, 1000);
 
       // Also update on window resize
       window.addEventListener("resize", updateRect);
@@ -88,8 +101,40 @@ export default function ChatInput({ onSubmit }: ChatInputProps) {
     }
   }, [isExpanded]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    const fetchWeather = async () => {
+      if (!currentLocation) return;
+      try {
+        const data = await getCurrentWeather(currentLocation);
+        setCurrentWeather(data);
+      } catch (error) {
+        console.error("Error fetching weather data:", error);
+      }
+    };
+
+    fetchWeather();
+  }, [currentLocation]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (input.trim().startsWith("@")) {
+      setIsLLMLoading(true);
+      try {
+        const response = await handleLLMQuery(
+          input.trim().slice(1),
+          currentLocation,
+          currentWeather
+        );
+        setLlmResponse(response);
+        setIsLLMVisible(true);
+      } catch (error) {
+        setLlmResponse("Error processing your request. Please try again.");
+        setIsLLMVisible(true);
+      }
+      setIsLLMLoading(false);
+      return;
+    }
+
     if (input.trim()) {
       onSubmit(input.trim());
       setInput("");
@@ -118,6 +163,38 @@ export default function ChatInput({ onSubmit }: ChatInputProps) {
     ) {
       setIsExpanded(false);
       setSuggestions([]);
+      setIsLLMVisible(false); // Close LLM response when chat collapses
+    }
+  };
+
+  const handleCloseLLM = () => {
+    setIsLLMVisible(false);
+  };
+
+  const handleLLMQuery = async (
+    query: string,
+    location: string,
+    weatherData: any
+  ): Promise<string> => {
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query, location, weatherData }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return data.error || "An error occurred while processing your request";
+      }
+
+      return data.content;
+    } catch (error) {
+      console.error("Error in handleLLMQuery:", error);
+      return "An unexpected error occurred. Please try again.";
     }
   };
 
@@ -205,6 +282,24 @@ export default function ChatInput({ onSubmit }: ChatInputProps) {
               onSelect={handleSuggestionSelect}
               visible={isExpanded && suggestions.length > 0}
             />
+            <LLMResponse
+              response={llmResponse}
+              onClose={handleCloseLLM}
+              isVisible={isLLMVisible}
+            />
+            {isLLMLoading && (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 8 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.2 }}
+                className="absolute left-0 right-0 top-full z-50 mt-2 bg-background/95 backdrop-blur-md border border-border rounded-2xl p-6"
+              >
+                <p className="text-lg text-muted-foreground">
+                  Processing query...
+                </p>
+              </motion.div>
+            )}
           </motion.form>
         ) : (
           <motion.button

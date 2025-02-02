@@ -10,6 +10,12 @@ import { useTheme } from "next-themes";
 import { createClient } from "@/utils/supabase/client";
 import { logOut } from "@/app/auth/action";
 import Settings from "@/components/weather/Settings";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export default function Navbar() {
   const [isSignedIn, setIsSignedIn] = useState(false);
@@ -99,6 +105,35 @@ export default function Navbar() {
           />
           MyWeather
         </Link>
+
+        {/* Center content */}
+        <div className="flex items-center gap-6 absolute left-1/2 transform -translate-x-1/2">
+          <span className="font-semibold">Owen B.</span>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-14">
+                  <div>PM Info</div>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="max-w-xs">
+                  The Product Manager Accelerator Program is designed to support
+                  PM professionals through every stage of their careers. From
+                  students looking for entry-level jobs to Directors looking to
+                  take on a leadership role, our program has helped over
+                  hundreds of students fulfill their career aspirations. Our
+                  Product Manager Accelerator community are ambitious and
+                  committed. Through our program they have learnt, honed and
+                  developed new PM and leadership skills, giving them a strong
+                  foundation for their future endeavors. Visit our LinkedIn:
+                  https://www.linkedin.com/school/pmaccelerator/
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+
         <div className="flex items-center space-x-4">
           <Button variant="ghost" size="icon" onClick={toggleTheme}>
             {mounted && (

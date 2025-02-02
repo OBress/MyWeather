@@ -3,10 +3,6 @@
 import { usePathname } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 
-const handleChatSubmit = (input: string) => {
-  console.log("Chat input:", input);
-};
-
 export default function ClientLayout({
   children,
 }: {
