@@ -2,24 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import {
-  Cloud,
-  Sun,
-  CloudRain,
-  Droplets,
-  Wind,
-  LucideIcon,
-  Thermometer,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Cloud, Sun, CloudRain, Droplets, LucideIcon } from "lucide-react";
 import { createElement } from "react";
 import { WeatherResponse } from "@/types/weather";
-import {
-  getCurrentWeather,
-  formatTemperature,
-  formatDate,
-  isToday,
-} from "@/utils/weather";
+import { getCurrentWeather, formatTemperature } from "@/utils/weather";
 
 interface ForecastCardsProps {
   location?: string;
@@ -96,7 +82,8 @@ export default function ForecastCards({ location }: ForecastCardsProps) {
           const data = await getCurrentWeather(randomLocation);
           setWeatherData(data);
           setError(null);
-        } catch (err: any) {
+        } catch (error) {
+          const err = error as Error;
           setError(err.message || "Failed to fetch weather data");
           console.error("Forecast error:", err);
         }
@@ -109,7 +96,8 @@ export default function ForecastCards({ location }: ForecastCardsProps) {
         const data = await getCurrentWeather(location);
         setWeatherData(data);
         setError(null);
-      } catch (err: any) {
+      } catch (error) {
+        const err = error as Error;
         setError(err.message || "Failed to fetch weather data");
         console.error("Forecast error:", err);
       }

@@ -41,7 +41,8 @@ export default function Home() {
           settings[0].locations
         ) {
           const defaultLocation = settings[0].locations.find(
-            (loc: any) => loc.id === settings[0].default_location
+            (loc: { id: string; address: string }) =>
+              loc.id === settings[0].default_location
           );
           if (defaultLocation) {
             setLocation(defaultLocation.address);
@@ -58,7 +59,7 @@ export default function Home() {
     } else {
       loadDefaultLocation();
     }
-  }, [searchParams]);
+  }, [searchParams, supabase]);
 
   const handleLocationSubmit = (input: string) => {
     setLocation(input);

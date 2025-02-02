@@ -3,13 +3,13 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, X } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useLoadScript } from "@react-google-maps/api";
 import LocationSuggestions from "./LocationSuggestions";
 import LLMResponse from "./LLMResponse";
 import { createClient } from "@/utils/supabase/client";
 import { getCurrentWeather } from "@/utils/weather";
+import type { WeatherResponse } from "@/types/weather";
 
 const libraries: "places"[] = ["places"];
 
@@ -25,7 +25,6 @@ export default function ChatInput({
   const [input, setInput] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
   const [screenWidth, setScreenWidth] = useState(0);
-  const [inputRect, setInputRect] = useState<DOMRect | null>(null);
   const inputRef = useRef<HTMLFormElement>(null);
   const [suggestions, setSuggestions] = useState<
     google.maps.places.AutocompletePrediction[]
@@ -35,7 +34,9 @@ export default function ChatInput({
   const [llmResponse, setLlmResponse] = useState<string | null>(null);
   const [isLLMLoading, setIsLLMLoading] = useState(false);
   const [isLLMVisible, setIsLLMVisible] = useState(false);
-  const [currentWeather, setCurrentWeather] = useState<any>(null);
+  const [currentWeather, setCurrentWeather] = useState<WeatherResponse | null>(
+    null
+  );
 
   const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
@@ -83,25 +84,6 @@ export default function ChatInput({
   }, [input, autocompleteService]);
 
   useEffect(() => {
-    if (isExpanded && inputRef.current) {
-      const updateRect = () => {
-        const rect = inputRef.current?.getBoundingClientRect();
-        if (rect) {
-          setInputRect(rect);
-        }
-      };
-
-      updateRect();
-      // Update rect on animation completion
-      setTimeout(updateRect, 1000);
-
-      // Also update on window resize
-      window.addEventListener("resize", updateRect);
-      return () => window.removeEventListener("resize", updateRect);
-    }
-  }, [isExpanded]);
-
-  useEffect(() => {
     const fetchWeather = async () => {
       if (!currentLocation) return;
       try {
@@ -120,6 +102,9 @@ export default function ChatInput({
     if (input.trim().startsWith("@")) {
       setIsLLMLoading(true);
       try {
+        if (!currentWeather) {
+          throw new Error("Weather data not available");
+        }
         const response = await handleLLMQuery(
           input.trim().slice(1),
           currentLocation,
@@ -174,7 +159,7 @@ export default function ChatInput({
   const handleLLMQuery = async (
     query: string,
     location: string,
-    weatherData: any
+    weatherData: WeatherResponse
   ): Promise<string> => {
     try {
       const response = await fetch("/api/chat", {

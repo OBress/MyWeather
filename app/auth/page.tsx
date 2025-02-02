@@ -46,11 +46,7 @@ const formVariants = {
   },
 };
 
-export default function AuthPage({
-  searchParams,
-}: {
-  searchParams: { message: string };
-}) {
+export default function AuthPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("login");
   const router = useRouter();

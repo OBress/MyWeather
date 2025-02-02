@@ -78,6 +78,36 @@ Weather app with LLM integration built with Next.js, Tailwind, Shadcn, and Supab
 
 The application will be available at `http://localhost:3000`.
 
+## Development
+
+### Linting
+
+The project uses ESLint for code quality and consistency. Before building or deploying, ensure your code passes linting:
+
+```bash
+npm run lint
+```
+
+To fix auto-fixable issues:
+
+```bash
+npm run lint -- --fix
+```
+
+Common linting rules:
+
+- Unused variables should be prefixed with underscore (\_)
+- React Hook dependencies should be properly specified
+- TypeScript `any` types should be avoided when possible
+
+### Building
+
+To create a production build:
+
+```bash
+npm run build
+```
+
 ## Tech Stack
 
 - **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS, shadcn/ui

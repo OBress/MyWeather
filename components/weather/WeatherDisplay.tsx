@@ -32,7 +32,8 @@ export default function WeatherDisplay({ location }: WeatherDisplayProps) {
           const data = await getCurrentWeather(randomLocation);
           setWeatherData(data);
           setError(null);
-        } catch (err: any) {
+        } catch (error) {
+          const err = error as Error;
           setError(err.message || "Failed to fetch weather data");
           console.error("Weather display error:", err);
         }
@@ -45,7 +46,8 @@ export default function WeatherDisplay({ location }: WeatherDisplayProps) {
         const data = await getCurrentWeather(location);
         setWeatherData(data);
         setError(null);
-      } catch (err: any) {
+      } catch (error) {
+        const err = error as Error;
         setError(err.message || "Failed to fetch weather data");
         console.error("Weather display error:", err);
       }

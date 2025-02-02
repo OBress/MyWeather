@@ -20,11 +20,6 @@ import {
 export default function Navbar() {
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [userData, setUserData] = useState<{
-    name?: string;
-    email?: string;
-    avatar_url?: string;
-  } | null>(null);
   const { setTheme, theme } = useTheme();
 
   useEffect(() => {
@@ -36,52 +31,18 @@ export default function Navbar() {
 
     supabase.auth.getUser().then(({ data: { user } }) => {
       setIsSignedIn(!!user);
-      if (user) {
-        const name =
-          user.user_metadata?.full_name ||
-          user.user_metadata?.name ||
-          user.email?.split("@")[0];
-        setUserData({
-          name,
-          email: user.email,
-          avatar_url: user.user_metadata?.avatar_url,
-        });
-      }
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setIsSignedIn(!!session?.user);
-      if (session?.user) {
-        const user = session.user;
-        const name =
-          user.user_metadata?.full_name ||
-          user.user_metadata?.name ||
-          user.email?.split("@")[0];
-        setUserData({
-          name,
-          email: user.email,
-          avatar_url: user.user_metadata?.avatar_url,
-        });
-      } else {
-        setUserData(null);
-      }
     });
 
     return () => {
       subscription.unsubscribe();
     };
   }, []);
-
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((part) => part[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
 
   const toggleTheme = () => {
     setTheme(theme === "light" ? "dark" : "light");

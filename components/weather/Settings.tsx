@@ -59,7 +59,7 @@ export default function Settings() {
     if (isLoaded && !autocompleteService) {
       setAutocompleteService(new google.maps.places.AutocompleteService());
     }
-  }, [isLoaded]);
+  }, [isLoaded, autocompleteService]);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -109,7 +109,7 @@ export default function Settings() {
     };
 
     loadSettings();
-  }, []);
+  }, [supabase]);
 
   const saveSettings = async () => {
     try {
@@ -183,7 +183,7 @@ export default function Settings() {
 
     const debounceTimer = setTimeout(fetchSuggestions, 300);
     return () => clearTimeout(debounceTimer);
-  }, [newAddress, autocompleteService]);
+  }, [newAddress, autocompleteService, showSuggestions]);
 
   const handleSuggestionSelect = (
     suggestion: google.maps.places.AutocompletePrediction,
