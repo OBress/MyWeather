@@ -7,6 +7,7 @@ Weather app with LLM integration built with Next.js, Tailwind, Shadcn, and Supab
 - Node.js 18.17 or later
 - Git
 - A Supabase account
+- A Google Maps API key
 - An OpenWeatherMap API key
 - An OpenAI API key
 
@@ -35,6 +36,7 @@ Weather app with LLM integration built with Next.js, Tailwind, Shadcn, and Supab
      ```
      NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
      NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+     NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
      OPENWEATHERMAP_API_KEY=your_openweathermap_api_key
      OPENAI_API_KEY=your_openai_api_key
      ```
